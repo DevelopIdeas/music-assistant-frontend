@@ -6,17 +6,30 @@
       </template>
     </v-toolbar>
     <v-divider />
-    <v-text-field
-      id="searchInput"
-      v-model="search"
-      clearable
-      prepend-inner-icon="mdi-magnify"
-      :label="$t('type_to_search')"
-      hide-details
-      variant="filled"
-      @focus="searchHasFocus = true"
-      @blur="searchHasFocus = false"
-    />
+    <v-row>
+      <v-col cols="8">
+        <v-text-field
+          id="searchInput"
+          v-model="search"
+          clearable
+          prepend-inner-icon="mdi-magnify"
+          :label="$t('type_to_search')"
+          hide-details
+          variant="filled"
+          @focus="searchHasFocus = true"
+          @blur="searchHasFocus = false"
+        />
+      </v-col>
+      <v-col cols="4">
+        <v-select
+          v-model="providers"
+          clearable
+          multiple
+          :items="musicProviders"
+          :label="$t('filter_providers')"
+        />
+      </v-col>
+    </v-row>
 
     <v-row
       v-for="rowSet in [
@@ -81,6 +94,7 @@ const compProps = defineProps<Props>();
 
 // local refs
 const search = ref('');
+const providers = ref([]);
 const searchHasFocus = ref(false);
 const searchResult = ref<SearchResults>();
 const loading = ref(false);
@@ -97,17 +111,42 @@ watch(
   },
 );
 
+watch(
+  () => providers.value,
+  () => {
+    clearTimeout(throttleId.value);
+    throttleId.value = setTimeout(() => {
+      loadSearchResults();
+    }, 200);
+  },
+);
+
 const loadSearchResults = async function () {
   loading.value = true;
   localStorage.setItem('globalsearch', search.value);
+  localStorage.setItem('globalproviders', JSON.stringify(providers.value));
 
   if (search.value) {
-    searchResult.value = await api.search(search.value);
+    searchResult.value = await api.search(
+      search.value,
+      undefined,
+      undefined,
+      providers.value as unknown as [string],
+    );
   } else {
     searchResult.value = undefined;
   }
   loading.value = false;
 };
+
+// computed properties
+const musicProviders = computed(() => {
+  // console.log(api.getPro, 'api');
+  return Object.values(api.providers)
+    .filter((a) => a.type === 'music')
+    .sort((a, b) => (a.name.toUpperCase() > b.name.toUpperCase() ? 1 : -1))
+    .map((x) => ({ title: x.name, value: x.instance_id }));
+});
 
 const filteredItems = function (itemType: string) {
   if (!searchResult.value) return [];
@@ -156,6 +195,15 @@ onMounted(() => {
     const savedSearch = localStorage.getItem('globalsearch');
     if (savedSearch && savedSearch !== 'null') {
       search.value = savedSearch;
+    }
+    try {
+      const savedProviders = localStorage.getItem('globalproviders');
+      if (savedProviders && savedProviders !== 'null') {
+        const parsedProviders = JSON.parse(savedProviders);
+        providers.value = parsedProviders;
+      }
+    } catch (ex) {
+      /* empty */
     }
   }
 });

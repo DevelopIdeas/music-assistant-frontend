@@ -528,9 +528,15 @@ export class MusicAssistantApi {
     search_query: string,
     media_types?: MediaType[],
     limit?: number,
+    provider_instance_ids?: [string],
   ): Promise<SearchResults> {
     // Perform global search for media items on all providers.
-    return this.getData('music/search', { search_query, media_types, limit });
+    return this.getData('music/search', {
+      search_query,
+      media_types,
+      limit,
+      provider_instance_ids,
+    });
   }
 
   public getRecentlyPlayedItems(
